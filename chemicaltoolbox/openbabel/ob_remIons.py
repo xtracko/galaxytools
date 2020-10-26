@@ -15,20 +15,37 @@ def parse_command_line():
     parser.add_argument('-iformat', default='sdf', help='input file format')
     parser.add_argument('-i', '--input', required=True, help='input file name')
     parser.add_argument('-o', '--output', required=True, help='output file name')
+    parser.add_argument('-idx', default=False, action='store_true', help='should output be indexed table?')
     return parser.parse_args()
 
 
 def remove_ions(args):
-    outfile = pybel.Outputfile(args.iformat, args.output, overwrite=True)
-    for mol in pybel.readfile(args.iformat, args.input):
-        if mol.OBMol.NumHvyAtoms() > 5:
-            mol.OBMol.StripSalts(0)
-            if 'inchi' in mol.data:
-                del mol.data['inchi']  # remove inchi cache so modified mol is saved
-            # Check if new small fragments have been created and remove them
+    if args.idx:
+        with open(args.output, 'w') as outfile:
+            for cnt, mol in enumerate(pybel.readfile(args.iformat, args.input)):
+                if mol.OBMol.NumHvyAtoms() > 5:
+                    mol.OBMol.StripSalts(0)
+                    if 'inchi' in mol.data:
+                        del mol.data['inchi']  # remove inchi cache so modified mol is saved
+                    # Check if new small fragments have been created and remove them
+                    if mol.OBMol.NumHvyAtoms() > 5:
+                        outfile.write(str(cnt) + "," + mol.write(args.iformat))
+                    else:
+                        outfile.write(str(cnt) + ",\n")
+                else:
+                    outfile.write(str(cnt) + ",\n")
+        outfile.close()
+    else:
+        outfile = pybel.Outputfile(args.iformat, args.output, overwrite=True)
+        for mol in pybel.readfile(args.iformat, args.input):
             if mol.OBMol.NumHvyAtoms() > 5:
-                outfile.write(mol)
-    outfile.close()
+                mol.OBMol.StripSalts(0)
+                if 'inchi' in mol.data:
+                    del mol.data['inchi']  # remove inchi cache so modified mol is saved
+                # Check if new small fragments have been created and remove them
+                if mol.OBMol.NumHvyAtoms() > 5:
+                    outfile.write(mol)
+        outfile.close()
 
 
 def __main__():
