@@ -15,37 +15,36 @@ def parse_command_line():
     parser.add_argument('-iformat', default='sdf', help='input file format')
     parser.add_argument('-i', '--input', required=True, help='input file name')
     parser.add_argument('-o', '--output', required=True, help='output file name')
-    parser.add_argument('-idx', default=False, action='store_true', help='should output be indexed table?')
+    parser.add_argument('-idx', default=False, action='store_true', help='should output be an indexed text table?')
     return parser.parse_args()
 
 
 def remove_ions(args):
-    if args.idx:
-        with open(args.output, 'w') as outfile:
-            for cnt, mol in enumerate(pybel.readfile(args.iformat, args.input)):
-                if mol.OBMol.NumHvyAtoms() > 5:
-                    mol.OBMol.StripSalts(0)
-                    if 'inchi' in mol.data:
-                        del mol.data['inchi']  # remove inchi cache so modified mol is saved
-                    # Check if new small fragments have been created and remove them
-                    if mol.OBMol.NumHvyAtoms() > 5:
-                        outfile.write(str(cnt) + "," + mol.write(args.iformat))
-                    else:
-                        outfile.write(str(cnt) + ",\n")
-                else:
-                    outfile.write(str(cnt) + ",\n")
-        outfile.close()
-    else:
-        outfile = pybel.Outputfile(args.iformat, args.output, overwrite=True)
-        for mol in pybel.readfile(args.iformat, args.input):
+    outfile = open(args.output, 'w') if args.idx else pybel.Outputfile(args.iformat, args.output, overwrite=True)
+    output = []
+    for index, mol in enumerate(pybel.readfile(args.iformat, args.input)):
+        output.append(str(index) + ",")
+        if mol.OBMol.NumHvyAtoms() > 5:
+            mol.OBMol.StripSalts(0)
+            if 'inchi' in mol.data:
+                del mol.data['inchi']  # remove inchi cache so modified mol is saved
+            # heck if new small fragments have been created and remove them
             if mol.OBMol.NumHvyAtoms() > 5:
-                mol.OBMol.StripSalts(0)
-                if 'inchi' in mol.data:
-                    del mol.data['inchi']  # remove inchi cache so modified mol is saved
-                # Check if new small fragments have been created and remove them
-                if mol.OBMol.NumHvyAtoms() > 5:
-                    outfile.write(mol)
-        outfile.close()
+                output[index] = output[index] + mol.write(args.iformat).strip('\n')
+        #    else:
+        #        output.append(str(index) + ",\n")
+        # else:
+        #    output.append(str(index) + ",\n")
+    print(output)
+
+    if args.idx:
+        for line in output:
+            outfile.write(line + '\n')
+    else:
+        for line in output:
+            string = line[line.find(",") + 1:]
+            if string:
+                outfile.write(pybel.readstring(args.iformat, string))
 
 
 def __main__():
